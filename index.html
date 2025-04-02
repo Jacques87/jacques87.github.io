@@ -1,7 +1,261 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jacques' CV</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .splash-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+
+        .splash-content {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: left;
+            width: 80%;
+            max-width: 400px;
+            min-width: 300px;
+        }
+
+        .control-ribbon {
+            display: flex;
+            margin-bottom: 20px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .control-ribbon button {
+            margin-right: 10px;
+        }
+
+        .form {
+            margin-top: 20px;
+            color: white;
+        }
+
+        .form .field {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
 <body>
-<h1>Hello World</h1>
-<p>I'm hosted with GitHub Pages.</p>
+    <canvas id="networkCanvas"></canvas>
+    <div class="splash-container">
+        <div class="splash-content">
+            <div class="control-ribbon">
+                <button id="requestAccessBtn" class="ui button">Request Access</button>
+                <button id="accessDetailsBtn" class="ui button">Access Details</button>
+            </div>
+            <div id="requestAccessForm" class="form" style="">
+                <div class="ui form">
+                    <div class="field">
+                        <input type="email" id="requestEmail" placeholder="Email Address">
+                    </div>
+                    <div class="ui center aligned grid">
+                        <div class="column">
+                            <button id="sendRequestBtn" class="ui primary button">Send Request</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="accessDetailsForm" class="form" style="display: none;">
+                <div class="ui form">
+                    <div class="field">
+                        <input type="email" id="accessEmail" placeholder="Email Address">
+                    </div>
+                    <div class="field">
+                        <input type="text" id="accessCode" placeholder="Access Code">
+                    </div>
+                    <div class="ui center aligned grid">
+                        <div class="column">
+                            <button id="enterBtn" class="ui primary button">Enter</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('networkCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let nodes = [];
+        let packets = [];
+        let connections = [];
+
+        function createNode(index) {
+            const margin = 0.2;
+            const rows = Math.ceil(Math.sqrt(72));
+            const cols = Math.ceil(72 / rows);
+            const x = (index % cols) * (canvas.width / cols) + Math.random() * (canvas.width / cols) - (canvas.width / cols) * margin;
+            const y = Math.floor(index / cols) * (canvas.height / rows) + Math.random() * (canvas.height / rows) - (canvas.height / rows) * margin;
+            return {
+                x: x,
+                y: y,
+                radius: 5,
+                color: 'lightblue',
+                connectedNodes: [],
+            };
+        }
+
+        function createPacket(from, to) {
+            return {
+                x: from.x,
+                y: from.y,
+                targetX: to.x,
+                targetY: to.y,
+                speed: 2,
+                color: 'lightgreen',
+                radius: 3,
+            };
+        }
+
+        function drawNode(node) {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+            ctx.fillStyle = node.color;
+            ctx.fill();
+        }
+
+        function drawPacket(packet) {
+            ctx.beginPath();
+            ctx.arc(packet.x, packet.y, packet.radius, 0, Math.PI * 2);
+            ctx.fillStyle = packet.color;
+            ctx.fill();
+        }
+
+        function updatePacket(packet) {
+            const dx = packet.targetX - packet.x;
+            const dy = packet.targetY - packet.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < packet.speed) {
+                packet.x = packet.targetX;
+                packet.y = packet.targetY;
+                packets.splice(packets.indexOf(packet), 1);
+            } else {
+                packet.x += (dx / distance) * packet.speed;
+                packet.y += (dy / distance) * packet.speed;
+            }
+        }
+
+        function drawLine(from, to) {
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.lineTo(to.x, to.y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.stroke();
+        }
+
+        function distance(node1, node2) {
+            const dx = node1.x - node2.x;
+            const dy = node1.y - node2.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            nodes = [];
+            packets = [];
+            connections = [];
+            for (let i = 0; i < 72; i++) {
+                nodes.push(createNode(i));
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            nodes.forEach(drawNode);
+
+            for (let i = 0; i < nodes.length; i++) {
+                const distances = nodes.map((node, j) => ({ index: j, dist: distance(nodes[i], node) }));
+                distances.sort((a, b) => a.dist - b.dist);
+
+                const numConnections = Math.floor(nodes.length * 0.2);
+                nodes[i].connectedNodes = [];
+                for (let j = 1; j <= numConnections; j++) {
+                    if (distances[j] && i !== distances[j].index) {
+                        drawLine(nodes[i], nodes[distances[j].index]);
+                        nodes[i].connectedNodes.push(nodes[distances[j].index]);
+                    }
+                }
+            }
+
+            packets.forEach(packet => {
+                drawPacket(packet);
+                updatePacket(packet);
+            });
+
+            if (Math.random() < 0.2) {
+                const from = nodes[Math.floor(Math.random() * nodes.length)];
+                if(from && from.connectedNodes.length > 0){
+                    const to = from.connectedNodes[Math.floor(Math.random() * from.connectedNodes.length)];
+                    if(from && to && from !== to) packets.push(createPacket(from, to));
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        resizeCanvas();
+        animate();
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Splash screen functionality
+        document.getElementById('requestAccessBtn').addEventListener('click', function() {
+            document.getElementById('requestAccessForm').style.display = 'block';
+            document.getElementById('accessDetailsForm').style.display = 'none';
+        });
+
+        document.getElementById('accessDetailsBtn').addEventListener('click', function() {
+            document.getElementById('accessDetailsForm').style.display = 'block';
+            document.getElementById('requestAccessForm').style.display = 'none';
+        });
+
+        document.getElementById('sendRequestBtn').addEventListener('click', function() {
+            const email = document.getElementById('requestEmail').value;
+            console.log('Request sent to:', email);
+            alert('Request sent!');
+        });
+
+        document.getElementById('enterBtn').addEventListener('click', function() {
+            const email = document.getElementById('accessEmail').value;
+            const code = document.getElementById('accessCode').value;
+            console.log('Email:', email, 'Code:', code);
+            alert('Access verified!');
+        });
+    </script>
 </body>
 </html>

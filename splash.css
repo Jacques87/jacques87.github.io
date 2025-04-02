@@ -1,0 +1,39 @@
+body, html {
+    height: 100%;
+    margin: 0;
+    font-family: sans-serif;
+}
+
+.splash-container {
+    height: 100%;
+    background-image: url('background.gif'); /* Replace with your GIF */
+    background-size: cover;
+    background-repeat: repeat; /* This helps with seamless looping, but the GIF needs to be created correctly for this */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative; /* Needed for absolute positioning of content */
+}
+
+.splash-content {
+    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white background for content */
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    position: relative; /* To allow z-index if needed */
+}
+
+button {
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+}
+
+.form {
+    margin-top: 20px;
+}
+
+input {
+    padding: 8px;
+    margin: 5px;
+}
