@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtKey = []byte("my_secret_key") // In production, use environment variables for this
+var jwtKey = []byte("my_secret_key") // In production, use environment variables
 
 type Credentials struct {
 	Username string `json:"username"`
@@ -24,47 +25,40 @@ type Claims struct {
 
 func main() {
 	// Define routes
+	http.HandleFunc("/", authPageHandler)
 	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/api/login", apiLoginHandler) // New API login endpoint
 	http.HandleFunc("/hello", authMiddleware(helloHandler))
 	http.HandleFunc("/info", authMiddleware(infoHandler))
+
+	// Serve static files (for CSS/JS if needed)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	// Start server
 	fmt.Println("Server listening on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-// Authentication middleware
-func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Get the JWT token from the Authorization header
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
-			return
-		}
-
-		tokenStr := authHeader[len("Bearer "):] // Remove "Bearer " prefix
-
-		// Initialize a new instance of `Claims`
-		claims := &Claims{}
-
-		// Parse the JWT string and store the result in `claims`
-		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-			return jwtKey, nil
-		})
-
-		if err != nil || !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
-
-		// Token is valid, call the next handler
-		next(w, r)
+// Serve the HTML authentication page
+func authPageHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+
+	tmpl, err := template.ParseFiles("auth.html")
+	if err != nil {
+		http.Error(w, "Error loading template", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+	tmpl.Execute(w, nil)
 }
 
-// Login endpoint to get JWT token
-func loginHandler(w http.ResponseWriter, r *http.Request) {
+// API login handler (for form submissions)
+func apiLoginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -77,15 +71,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// In a real application, you would validate credentials against a database
-	// This is just a simple example
-	expectedPassword := "password123" // Don't do this in production!
-	if creds.Username != "admin" || creds.Password != expectedPassword {
+	// Simple credential check - in production, use a database
+	if creds.Username != "admin" || creds.Password != "password123" {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	// Create the JWT claims
+	// Create JWT token
 	expirationTime := time.Now().Add(5 * time.Minute)
 	claims := &Claims{
 		Username: creds.Username,
@@ -94,7 +86,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// Create the token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
@@ -102,14 +93,43 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return the token
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"token": tokenString,
 	})
 }
 
-// First endpoint - simple greeting (now protected)
+// Original JSON login handler (kept for compatibility)
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	apiLoginHandler(w, r)
+}
+
+// Authentication middleware (unchanged)
+func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+			return
+		}
+
+		tokenStr := authHeader[len("Bearer "):]
+		claims := &Claims{}
+
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+
+		if err != nil || !token.Valid {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+// Protected endpoints (unchanged)
 func helloHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -127,7 +147,6 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(response))
 }
 
-// Second endpoint - returns JSON data (now protected)
 func infoHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

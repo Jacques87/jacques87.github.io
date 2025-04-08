@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .container { display: flex; gap: 20px; }
+        .auth-form, .api-test { flex: 1; border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
+        form { display: flex; flex-direction: column; gap: 10px; }
+        input, button { padding: 8px; font-size: 16px; }
+        button { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        #message { margin-top: 15px; padding: 10px; border-radius: 5px; }
+        .success { background-color: #ddffdd; border: 1px solid #4CAF50; }
+        .error { background-color: #ffdddd; border: 1px solid #f44336; }
+        #apiResponse { margin-top: 10px; padding: 10px; background-color: #f9f9f9; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>JWT Authentication Demo</h1>
+    <div class="container">
+        <div class="auth-form">
+            <h2>Login</h2>
+            <form id="loginForm">
+                <input type="text" id="username" placeholder="Username" required value="admin">
+                <input type="password" id="password" placeholder="Password" required value="password123">
+                <button type="submit">Login</button>
+            </form>
+            <div id="message"></div>
+        </div>
+
+        <div class="api-test">
+            <h2>API Test</h2>
+            <button onclick="testProtectedEndpoint()">Test /hello Endpoint</button>
+            <div id="apiResponse"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = '';
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const messageEl = document.getElementById('message');
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+                
+                const data = await response.json();
+                authToken = data.token;
+                
+                messageEl.textContent = 'Login successful! Token stored.';
+                messageEl.className = 'success';
+                
+            } catch (err) {
+                messageEl.textContent = 'Login failed: ' + err.message;
+                messageEl.className = 'error';
+                authToken = '';
+            }
+        });
+
+        async function testProtectedEndpoint() {
+            const responseEl = document.getElementById('apiResponse');
+            
+            if (!authToken) {
+                responseEl.textContent = 'Please login first';
+                responseEl.style.backgroundColor = '#ffdddd';
+                return;
+            }
+
+            try {
+                const response = await fetch('/hello', {
+                    headers: {
+                        'Authorization': 'Bearer ' + authToken
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+                
+                const data = await response.text();
+                responseEl.textContent = 'API Response: ' + data;
+                responseEl.style.backgroundColor = '#ddffdd';
+                
+            } catch (err) {
+                responseEl.textContent = 'API Error: ' + err.message;
+                responseEl.style.backgroundColor = '#ffdddd';
+            }
+        }
+    </script>
+</body>
+</html>
