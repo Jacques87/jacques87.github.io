@@ -1,0 +1,62 @@
+Key Changes Made:
+Added JWT Authentication:
+
+Created a /login endpoint that issues JWT tokens
+
+Added an authentication middleware to protect the other endpoints
+
+Used the github.com/golang-jwt/jwt/v5 package for JWT handling
+
+Authentication Flow:
+
+First, get a token by POSTing credentials to /login
+
+Then use that token in the Authorization: Bearer <token> header for protected endpoints
+
+Middleware:
+
+The authMiddleware function wraps protected endpoints
+
+It validates the JWT token before allowing access to the endpoint
+
+How to Use:
+Get a Token:
+
+bash
+Copy
+curl -X POST http://localhost:8080/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"password123"}'
+Access Protected Endpoints:
+
+bash
+Copy
+curl http://localhost:8080/hello \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+Important Notes for Production:
+Security:
+
+Never hardcode credentials like in this example
+
+Use environment variables for secrets (like jwtKey)
+
+Implement proper password hashing (bcrypt, etc.)
+
+Use HTTPS in production
+
+JWT:
+
+Consider shorter expiration times
+
+Implement token refresh mechanism
+
+Consider adding more claims as needed
+
+Dependency:
+
+You'll need to install the JWT package first:
+
+bash
+Copy
+go get github.com/golang-jwt/jwt/v5
+Would you like me to modify any aspect of this authentication implementation? For example, adding role-based access control, refresh tokens, or integrating with a database?
