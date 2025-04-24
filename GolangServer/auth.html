@@ -65,6 +65,7 @@
                 messageEl.textContent = 'Login successful! Token stored.';
                 messageEl.className = 'success';
                 
+                document.cookie = "Authorization=" + authToken +"; path=/; max-age=36000;"; // Set cookie for 1 hour
             } catch (err) {
                 messageEl.textContent = 'Login failed: ' + err.message;
                 messageEl.className = 'error';
